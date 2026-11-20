@@ -12,12 +12,16 @@ const created = await fetch(`${base}/api/state`, {
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify(first),
 });
-assert.equal(created.status, 201, `create failed: ${created.status} ${await created.text()}`);
+if (created.status !== 201) {
+  throw new Error(`create failed: ${created.status} ${await created.text()}`);
+}
 const createdBody = await created.json();
 assert.match(createdBody.id, /^[a-zA-Z0-9_-]{6,80}$/);
 
 const fetched = await fetch(`${base}/api/state?b=${encodeURIComponent(createdBody.id)}`);
-assert.equal(fetched.status, 200, `get failed: ${fetched.status} ${await fetched.text()}`);
+if (fetched.status !== 200) {
+  throw new Error(`get failed: ${fetched.status} ${await fetched.text()}`);
+}
 const fetchedBody = await fetched.json();
 assert.equal(fetchedBody.state.viceo[0].clips, 3);
 
@@ -31,7 +35,9 @@ const updated = await fetch(`${base}/api/state?b=${encodeURIComponent(createdBod
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify(second),
 });
-assert.equal(updated.status, 200, `update failed: ${updated.status} ${await updated.text()}`);
+if (updated.status !== 200) {
+  throw new Error(`update failed: ${updated.status} ${await updated.text()}`);
+}
 
 const refetched = await fetch(`${base}/api/state?b=${encodeURIComponent(createdBody.id)}`);
 assert.equal(refetched.status, 200);
