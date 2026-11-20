@@ -1,4 +1,6 @@
-const BLOB = "https://jsonblob.com/api/jsonBlob";
+import { randomBytes } from 'node:crypto';
+
+const STORE = 'https://mantledb.sh/v2/content-challenge';
 const ID_RE = /^[a-zA-Z0-9_-]{6,80}$/;
 
 function send(res, status, body) {
@@ -36,40 +38,29 @@ function boardId(req) {
   return url.searchParams.get("b") || "";
 }
 
-async function createBlob(state) {
-  const res = await fetch(BLOB, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(state),
-  });
-  if (!res.ok) throw new Error("create " + res.status);
-  const loc = res.headers.get("location") || res.headers.get("Location") || "";
-  const headerId = res.headers.get("x-jsonblob") || "";
-  const id = headerId || loc.split("/").filter(Boolean).pop();
-  if (!id) throw new Error("no blob id");
+async function createBoard(state) {
+  const id = `b_${randomBytes(12).toString('base64url')}`;
+  await putBoard(id, state);
   return id;
 }
 
-async function getBlob(id) {
-  const res = await fetch(`${BLOB}/${id}`, { headers: { Accept: "application/json" } });
+async function getBoard(id) {
+  const res = await fetch(`${STORE}/${id}`, { headers: { Accept: 'application/json' } });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error("get " + res.status);
+  if (!res.ok) throw new Error(`get ${res.status}`);
   return res.json();
 }
 
-async function putBlob(id, state) {
-  const res = await fetch(`${BLOB}/${id}`, {
-    method: "PUT",
+async function putBoard(id, state) {
+  const res = await fetch(`${STORE}/${id}`, {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
     },
     body: JSON.stringify(state),
   });
-  if (!res.ok) throw new Error("put " + res.status);
+  if (!res.ok) throw new Error(`put ${res.status}`);
 }
 
 export default async function handler(req, res) {
@@ -85,7 +76,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "POST") {
       const state = await readBody(req);
-      const id = await createBlob(state);
+      const id = await createBoard(state);
       return send(res, 201, { id, state });
     }
 
@@ -93,14 +84,14 @@ export default async function handler(req, res) {
     if (!ID_RE.test(id)) return send(res, 400, { error: "bad_id" });
 
     if (req.method === "GET") {
-      const state = await getBlob(id);
+      const state = await getBoard(id);
       if (!state) return send(res, 404, { error: "not_found" });
       return send(res, 200, { id, state });
     }
 
     if (req.method === "PUT") {
       const state = await readBody(req);
-      await putBlob(id, state);
+      await putBoard(id, state);
       return send(res, 200, { id, state });
     }
 
