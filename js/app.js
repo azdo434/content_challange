@@ -204,42 +204,73 @@ async function pull() {
   }
 }
 
-async function createLive() {
+function openShareDialog() {
+  const dialog = $("#share-dialog");
+  const field = $("#share-url");
+  field.value = location.href;
+  if (!dialog.open) dialog.showModal();
+  field.focus();
+  field.select();
+}
+
+async function copyShareLink() {
+  const value = location.href;
+  const field = $("#share-url");
+  field.value = value;
   try {
-    const data = await api("/api/state", {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    field.focus();
+    field.select();
+    return document.execCommand("copy");
+  }
+}
+
+async function createLive() {
+  let data;
+  try {
+    data = await api("/api/state", {
       method: "POST",
       body: JSON.stringify(state),
     });
-    boardId = data.id;
-    setBoardInUrl(boardId);
-    setMode("live");
-    await navigator.clipboard.writeText(location.href);
-    toast("LIVE LINK COPIED");
   } catch {
-    toast("DEPLOY API TO GO LIVE");
-    try {
-      await navigator.clipboard.writeText(location.href);
-    } catch {}
+    toast("COULDN'T CREATE LIVE LINK");
+    return;
   }
+
+  boardId = data.id;
+  setBoardInUrl(boardId);
+  setMode("live");
+  openShareDialog();
+  const copied = await copyShareLink();
+  toast(copied ? "LIVE LINK COPIED" : "LIVE LINK READY");
 }
 
 async function share() {
-  if (mode === "live" && boardId) {
-    setBoardInUrl(boardId);
-    try {
-      await navigator.clipboard.writeText(location.href);
-      toast("LIVE LINK COPIED");
-    } catch {
-      toast(location.href);
-    }
+  if (mode !== "live" || !boardId) {
+    await createLive();
     return;
   }
-  await createLive();
+
+  setBoardInUrl(boardId);
+  openShareDialog();
+  const copied = await copyShareLink();
+  toast(copied ? "LIVE LINK COPIED" : "LIVE LINK READY");
 }
 
 function boot() {
+  const dialog = $("#share-dialog");
   renderBoards();
   $("#share-btn").addEventListener("click", share);
+  $("#copy-share").addEventListener("click", async () => {
+    const copied = await copyShareLink();
+    toast(copied ? "LIVE LINK COPIED" : "SELECT AND COPY THE LINK");
+  });
+  $("#share-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
   if (boardId) {
     setBoardInUrl(boardId);
     pull();
