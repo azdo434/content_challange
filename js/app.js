@@ -259,10 +259,24 @@ async function share() {
   toast(copied ? "LIVE LINK COPIED" : "LIVE LINK READY");
 }
 
+function resetBoard() {
+  state = emptyState();
+  boardId = "";
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(LS_BOARD);
+  const url = new URL(location.href);
+  url.searchParams.delete("b");
+  history.replaceState(null, "", url);
+  setMode("local");
+  renderBoards();
+  toast("TRACKER RESET");
+}
+
 function boot() {
   const dialog = $("#share-dialog");
   renderBoards();
   $("#share-btn").addEventListener("click", share);
+  $("#reset-btn").addEventListener("click", resetBoard);
   $("#copy-share").addEventListener("click", async () => {
     const copied = await copyShareLink();
     toast(copied ? "LIVE LINK COPIED" : "SELECT AND COPY THE LINK");
