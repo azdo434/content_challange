@@ -189,6 +189,15 @@ button {
   border-color: var(--green);
 }
 
+.pill.syncing {
+  color: #fff;
+}
+
+.stage.is-syncing .tracker-board {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .tracker-board {
   position: absolute;
   top: 58.2%;
@@ -196,6 +205,8 @@ button {
   height: 35.6%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(10, minmax(0, 1fr));
+  grid-auto-flow: column;
   padding: 0.25cqw 0.32cqw;
   overflow: hidden;
   border: max(1px, 0.1cqw) solid #ff2ec8c7;
@@ -217,17 +228,11 @@ button {
   width: 29%;
 }
 
-.day-col {
-  min-width: 0;
-  display: grid;
-  grid-template-rows: repeat(10, minmax(0, 1fr));
-}
-
 .day {
   position: relative;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(28px, 2.25cqw);
   align-items: center;
   gap: 0.25cqw;
   border: 0;
@@ -235,16 +240,34 @@ button {
   padding: 0 0.38cqw;
   background: transparent;
   color: #fff;
-  cursor: pointer;
   transition: background 140ms var(--ease), transform 140ms var(--ease);
 }
 
 .day:hover,
-.day:focus-visible {
+.day:focus-within {
   z-index: 4;
   background: #ff2ec825;
   transform: translateX(1px);
   outline: 1px solid #ff8ee461;
+}
+
+.day-toggle {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25cqw;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.day-toggle:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
 }
 
 .day-label {
@@ -292,6 +315,27 @@ button {
   transform: rotate(45deg);
 }
 
+.day.is-done.is-zero .box::before,
+.day.is-done.is-zero .box::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  width: max(2px, 0.14cqw);
+  height: 72%;
+  border: 0;
+  background: #fff;
+  transform-origin: center;
+}
+
+.day.is-done.is-zero .box::before {
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.day.is-done.is-zero .box::after {
+  transform: translateX(-50%) rotate(-45deg);
+}
+
 .day.is-done .box:has(.n)::after {
   content: none;
 }
@@ -309,11 +353,10 @@ button {
 }
 
 .clips {
-  position: absolute;
+  position: relative;
   z-index: 5;
-  right: 2.15cqw;
-  width: 2.05cqw;
-  min-width: 24px;
+  width: 100%;
+  min-width: 28px;
   height: 1.55cqw;
   min-height: 20px;
   border: 1px solid var(--pink);
@@ -324,16 +367,14 @@ button {
   font-size: clamp(8px, 0.86cqw, 14px);
   font-weight: 700;
   text-align: center;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
   box-shadow: 0 0 0.55cqw #ff2ec86e;
 }
 
-.day.is-done:hover .clips,
-.day.is-done:focus-within .clips,
 .clips:focus {
-  opacity: 1;
-  pointer-events: auto;
+  outline: 2px solid #fff;
+  outline-offset: 1px;
 }
 
 .clips::-webkit-inner-spin-button {
@@ -519,20 +560,179 @@ button {
   }
 }
 
-@media (max-aspect-ratio: 4 / 3) {
+@media (max-width: 900px) {
+  html,
+  body {
+    min-height: 100%;
+  }
+
   body {
     display: block;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #090108;
   }
 
   .stage {
-    width: max(900px, 100vw);
-    min-width: 900px;
+    width: 100%;
+    min-height: 100dvh;
+    aspect-ratio: auto;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: calc(56.25vw + 12px) 0 calc(24px + env(safe-area-inset-bottom));
+    box-shadow: none;
+  }
+
+  .background-art {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+
+  .stats-hud,
+  .tracker-actions,
+  .tracker-board,
+  .tracker-hint {
+    position: relative;
+    inset: auto;
+    width: calc(100% - 24px);
+    height: auto;
     margin: 0 auto;
+    transform: none;
+  }
+
+  .stats-hud {
+    min-height: 68px;
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  .stat-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 4px;
+    padding: 0 6px;
+    text-align: center;
+  }
+
+  .stat-group strong {
+    font-size: 18px;
+  }
+
+  .stat-group span {
+    font-size: 8px;
+    letter-spacing: 0.06em;
+  }
+
+  .stat-total {
+    display: flex;
+  }
+
+  .tracker-actions {
+    position: sticky;
+    top: max(8px, env(safe-area-inset-top));
+    z-index: 20;
+    min-height: 58px;
+    justify-content: center;
+    gap: 8px;
+    padding: 7px;
+    border-radius: 16px;
+  }
+
+  .tracker-actions button,
+  .pill {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+
+  .tracker-board {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    gap: 6px;
+    padding: 54px 10px 12px;
+    overflow: visible;
+    border: 2px solid #ff2ec8;
+    border-radius: 18px;
+    background: #09040beF;
+    box-shadow: 0 0 24px #ff2ec859, inset 0 0 28px #ff2ec814;
+  }
+
+  .tracker-board::before {
+    content: attr(data-title);
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    color: #fff;
+    font-family: "Bangers", sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 12px #ff2ec8;
+  }
+
+  .day {
+    min-height: 54px;
+    grid-template-columns: minmax(0, 1fr) 48px;
+    gap: 5px;
+    border: 1px solid #ff2ec842;
+    border-radius: 10px;
+    padding: 0 7px;
+    background: #160b17d6;
+  }
+
+  .day:hover,
+  .day:focus-within {
+    transform: none;
+  }
+
+  .day-label {
+    font-size: 16px;
+  }
+
+  .clips {
+    width: 48px;
+    min-width: 48px;
+    height: 44px;
+    min-height: 44px;
+    border: 2px solid var(--pink);
+    border-radius: 9px;
+    font-size: 17px;
+  }
+
+  .box {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+    border-radius: 6px;
+  }
+
+  .tracker-hint {
+    border-radius: 12px;
+    padding: 9px 12px;
+    font-size: 10px;
+    line-height: 1.35;
+    letter-spacing: 0.08em;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom));
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 760px) {
+  .tracker-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .share-card {
     padding: 24px 18px 20px;
   }
@@ -543,5 +743,6 @@ button {
 
   .share-link-row button {
     width: 100%;
+    min-height: 48px;
   }
 }

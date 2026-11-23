@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
   <main class="stage" aria-label="30 day GTA VI content challenge tracker">
@@ -44,21 +44,23 @@
     <nav class="tracker-actions" aria-label="Tracker actions">
       <span id="mode-pill" class="pill local">LOCAL</span>
       <button type="button" id="share-btn">SHARE LINK</button>
-      <button type="button" id="reset-btn">RESET</button>
+      <button type="button" id="reset-btn" hidden>RESET</button>
     </nav>
 
     <section
       class="tracker-board tracker-board-left"
       data-board="viceo"
+      data-title="VICEO"
       aria-label="VICEO 30 day tracker"
     ></section>
     <section
       class="tracker-board tracker-board-right"
       data-board="clipco"
+      data-title="VIBE_COCOS"
       aria-label="vibe_cocos 30 day tracker"
     ></section>
 
-    <p class="tracker-hint">CLICK A DAY · HOVER A CHECKED DAY TO SET CLIPS</p>
+    <p class="tracker-hint">TAP A DAY TO CHECK IT · TAP THE NUMBER TO SET 0–100</p>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </main>
 
@@ -76,6 +78,6 @@
     </div>
   </dialog>
 
-  <script src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>

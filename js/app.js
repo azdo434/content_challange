@@ -1,35 +1,19 @@
-const DAYS = 30;
-const PEOPLE = ["viceo", "clipco"];
+import {
+  DAYS,
+  PEOPLE,
+  clampContentCount,
+  emptyState,
+  markContentCount,
+  normalizeState,
+  personTotals,
+} from "./state.js?v=7";
+
 const LS_KEY = "gta6-30day-state-v1";
 const LS_BOARD = "gta6-30day-board-id";
 
-function emptyPerson() {
-  return Array.from({ length: DAYS }, () => ({ done: false, clips: 0 }));
-}
-
-function emptyState() {
-  return { viceo: emptyPerson(), clipco: emptyPerson(), updatedAt: 0 };
-}
-
-function normalize(raw) {
-  const base = emptyState();
-  if (!raw || typeof raw !== "object") return base;
-  for (const who of PEOPLE) {
-    const src = Array.isArray(raw[who]) ? raw[who] : [];
-    base[who] = base[who].map((slot, i) => {
-      const row = src[i] || {};
-      const clips = Math.max(0, Math.min(99, Number(row.clips) || 0));
-      const done = Boolean(row.done);
-      return { done, clips: done ? Math.max(1, clips) : clips };
-    });
-  }
-  base.updatedAt = Number(raw.updatedAt) || 0;
-  return base;
-}
-
 function loadLocal() {
   try {
-    return normalize(JSON.parse(localStorage.getItem(LS_KEY) || "null"));
+    return normalizeState(JSON.parse(localStorage.getItem(LS_KEY) || "null"));
   } catch {
     return emptyState();
   }
@@ -55,6 +39,7 @@ let boardId = boardFromUrl();
 let mode = "local";
 let pushTimer = 0;
 let pulling = false;
+let hasSyncedBoard = false;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -67,10 +52,7 @@ function toast(msg) {
 }
 
 function totals(who) {
-  const rows = state[who];
-  const days = rows.filter((r) => r.done).length;
-  const clips = rows.reduce((n, r) => n + (r.done ? r.clips : 0), 0);
-  return { days, clips };
+  return personTotals(state[who]);
 }
 
 function renderStats() {
@@ -86,41 +68,57 @@ function renderStats() {
 function dayButton(who, day) {
   const i = day - 1;
   const row = state[who][i];
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "day" + (row.done ? " is-done" : "");
-  btn.dataset.who = who;
-  btn.dataset.day = String(day);
-  btn.setAttribute("aria-pressed", row.done ? "true" : "false");
-  btn.innerHTML = `
-    <span class="day-label">DAY ${day}</span>
-    <input class="clips" type="number" min="0" max="99" value="${row.clips}" aria-label="Clips day ${day}">
-    <span class="box">${row.done && row.clips > 1 ? `<b class="n">${row.clips}</b>` : ""}</span>
+  const rowEl = document.createElement("div");
+  rowEl.className = "day"
+    + (row.done ? " is-done" : "")
+    + (row.done && row.clips === 0 ? " is-zero" : "");
+  rowEl.dataset.who = who;
+  rowEl.dataset.day = String(day);
+  const personName = who === "viceo" ? "VICEO" : "vibe_cocos";
+  rowEl.innerHTML = `
+    <button
+      class="day-toggle"
+      type="button"
+      aria-pressed="${row.done ? "true" : "false"}"
+      aria-label="Mark ${personName}, day ${day} ${row.done ? "not completed" : "completed"}"
+    >
+      <span class="day-label">DAY ${day}</span>
+      <span class="box" aria-hidden="true"></span>
+    </button>
+    <input
+      class="clips"
+      type="number"
+      inputmode="numeric"
+      pattern="[0-9]*"
+      enterkeyhint="done"
+      min="0"
+      max="100"
+      step="1"
+      value="${row.clips}"
+      aria-label="Content count for ${personName}, day ${day}"
+    >
   `;
-  const input = btn.querySelector(".clips");
-  btn.addEventListener("click", (e) => {
-    if (e.target === input) return;
-    toggleDay(who, i);
+  const toggle = rowEl.querySelector(".day-toggle");
+  const input = rowEl.querySelector(".clips");
+  toggle.addEventListener("click", () => toggleDay(who, i));
+  input.addEventListener("focus", () => input.select());
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") input.blur();
   });
-  input.addEventListener("click", (e) => e.stopPropagation());
   input.addEventListener("change", () => {
-    const n = Math.max(0, Math.min(99, Number(input.value) || 0));
-    setClips(who, i, n);
+    const count = clampContentCount(input.value);
+    input.value = String(count);
+    setClips(who, i, count);
   });
-  return btn;
+  return rowEl;
 }
 
 function renderBoards() {
   for (const who of PEOPLE) {
     const root = document.querySelector(`[data-board="${who}"]`);
     root.innerHTML = "";
-    for (let col = 0; col < 3; col++) {
-      const column = document.createElement("div");
-      column.className = "day-col";
-      for (let row = 0; row < 10; row++) {
-        column.appendChild(dayButton(who, col * 10 + row + 1));
-      }
-      root.appendChild(column);
+    for (let day = 1; day <= DAYS; day++) {
+      root.appendChild(dayButton(who, day));
     }
   }
   renderStats();
@@ -134,24 +132,23 @@ function commit() {
 }
 
 function toggleDay(who, i) {
-  const row = state[who][i];
-  row.done = !row.done;
-  if (row.done && row.clips < 1) row.clips = 1;
+  state[who][i].done = !state[who][i].done;
   commit();
 }
 
-function setClips(who, i, n) {
-  state[who][i].clips = n;
-  if (n > 0) state[who][i].done = true;
-  if (n === 0) state[who][i].done = false;
+function setClips(who, i, count) {
+  state[who][i] = markContentCount(state[who][i], count);
   commit();
 }
 
 function setMode(next) {
   mode = next;
   const pill = $("#mode-pill");
-  pill.textContent = next === "live" ? "LIVE" : "LOCAL";
+  const stage = $(".stage");
+  pill.textContent = next === "live" ? "LIVE" : next === "syncing" ? "SYNC" : "LOCAL";
   pill.className = "pill " + next;
+  stage.classList.toggle("is-syncing", next === "syncing");
+  stage.setAttribute("aria-busy", next === "syncing" ? "true" : "false");
 }
 
 async function api(path, opts) {
@@ -187,15 +184,17 @@ async function push() {
 
 async function pull() {
   if (!boardId || pulling) return;
+  if (hasSyncedBoard && document.activeElement?.classList.contains("clips")) return;
   pulling = true;
   try {
     const data = await api("/api/state?b=" + encodeURIComponent(boardId));
-    const remote = normalize(data.state || data);
-    if (remote.updatedAt >= state.updatedAt) {
+    const remote = normalizeState(data.state || data);
+    if (!hasSyncedBoard || remote.updatedAt > state.updatedAt) {
       state = remote;
       saveLocal(state);
       renderBoards();
     }
+    hasSyncedBoard = true;
     setMode("live");
   } catch (e) {
     if (e.status === 404) setMode("local");
@@ -240,6 +239,7 @@ async function createLive() {
   }
 
   boardId = data.id;
+  hasSyncedBoard = true;
   setBoardInUrl(boardId);
   setMode("live");
   openShareDialog();
@@ -262,6 +262,7 @@ async function share() {
 function resetBoard() {
   state = emptyState();
   boardId = "";
+  hasSyncedBoard = false;
   localStorage.removeItem(LS_KEY);
   localStorage.removeItem(LS_BOARD);
   const url = new URL(location.href);
@@ -287,6 +288,7 @@ function boot() {
   });
   if (boardId) {
     setBoardInUrl(boardId);
+    setMode("syncing");
     pull();
     setInterval(pull, 2500);
   } else {
